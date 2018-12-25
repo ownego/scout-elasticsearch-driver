@@ -119,7 +119,7 @@ class ElasticEngine extends Engine
             $payloadCollection->push($payload);
         }
 
-        return $payloadCollection->map(function (TypePayload $payload) use ($builder, $options) {
+        return $payloadCollection->map(function (TypePayload $payload) use ($builder, $options, $ruleEntity) {
             $payload
                 ->setIfNotEmpty('body._source', $builder->select)
                 ->setIfNotEmpty('body.collapse.field', $builder->collapse)
@@ -128,6 +128,12 @@ class ElasticEngine extends Engine
                 ->setIfNotEmpty('body.profile', $options['profile'] ?? null)
                 ->setIfNotNull('body.from', $builder->offset)
                 ->setIfNotNull('body.size', $builder->limit);
+
+            if ($body = $ruleEntity->body()) {
+                foreach ($body as $key => $value) {
+                    $payload->set('body.' . $key, $value);
+                }
+            }
 
 
             foreach ($builder->wheres as $clause => $filters) {
