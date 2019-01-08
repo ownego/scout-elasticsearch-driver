@@ -129,7 +129,9 @@ class ElasticEngine extends Engine
                 ->setIfNotNull('body.from', $builder->offset)
                 ->setIfNotNull('body.size', $builder->limit);
 
-            if ($body = $ruleEntity->body()) {
+            if (method_exists($ruleEntity, 'body')) {
+                $body = $ruleEntity->body();
+
                 foreach ($body as $key => $value) {
                     $payload->set('body.' . $key, $value);
                 }
