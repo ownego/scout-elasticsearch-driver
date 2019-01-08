@@ -86,6 +86,7 @@ class ElasticEngine extends Engine
     public function buildSearchQueryPayloadCollection(Builder $builder, array $options = [])
     {
         $payloadCollection = collect();
+        $ruleEntity = null;
 
         if ($builder instanceof SearchBuilder) {
             $searchRules = $builder->rules ?: $builder->model->getSearchRules();
@@ -129,7 +130,7 @@ class ElasticEngine extends Engine
                 ->setIfNotNull('body.from', $builder->offset)
                 ->setIfNotNull('body.size', $builder->limit);
 
-            if (method_exists($ruleEntity, 'body')) {
+            if ($ruleEntity && method_exists($ruleEntity, 'body')) {
                 $body = $ruleEntity->body();
 
                 foreach ($body as $key => $value) {
