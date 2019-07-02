@@ -4,27 +4,33 @@ namespace ScoutElastic\Console;
 
 use Exception;
 use LogicException;
-use Illuminate\Console\Command;
-use ScoutElastic\Console\Features\RequiresIndexConfiguratorArgument;
-use ScoutElastic\Facades\ElasticClient;
 use ScoutElastic\Migratable;
-use ScoutElastic\Payloads\IndexPayload;
+use Illuminate\Console\Command;
 use ScoutElastic\Payloads\RawPayload;
+use ScoutElastic\Facades\ElasticClient;
+use ScoutElastic\Payloads\IndexPayload;
+use ScoutElastic\Console\Features\RequiresIndexConfiguratorArgument;
 
 class ElasticIndexUpdateCommand extends Command
 {
     use RequiresIndexConfiguratorArgument;
 
     /**
-     * @var string
+     * {@inheritdoc}
      */
     protected $name = 'elastic:update-index';
 
     /**
-     * @var string
+     * {@inheritdoc}
      */
     protected $description = 'Update settings and mappings of an Elasticsearch index';
 
+    /**
+     * Update the index.
+     *
+     * @throws \Exception
+     * @return void
+     */
     protected function updateIndex()
     {
         $configurator = $this->getIndexConfigurator();
@@ -51,15 +57,6 @@ class ElasticIndexUpdateCommand extends Command
                 $indices->putSettings($indexSettingsPayload);
             }
 
-            if ($defaultMapping = $configurator->getDefaultMapping()) {
-                $indexMappingPayload = (new IndexPayload($configurator))
-                    ->set('type', '_default_')
-                    ->set('body._default_', $defaultMapping)
-                    ->get();
-
-                $indices->putMapping($indexMappingPayload);
-            }
-
             $indices->open($indexPayload);
         } catch (Exception $exception) {
             $indices->open($indexPayload);
@@ -73,6 +70,11 @@ class ElasticIndexUpdateCommand extends Command
         ));
     }
 
+    /**
+     * Create a write alias.
+     *
+     * @return void
+     */
     protected function createWriteAlias()
     {
         $configurator = $this->getIndexConfigurator();
@@ -104,6 +106,11 @@ class ElasticIndexUpdateCommand extends Command
         ));
     }
 
+    /**
+     * Handle the command.
+     *
+     * @var string
+     */
     public function handle()
     {
         $this->updateIndex();

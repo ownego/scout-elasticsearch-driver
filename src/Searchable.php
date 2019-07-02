@@ -2,42 +2,54 @@
 
 namespace ScoutElastic;
 
-use Illuminate\Database\Eloquent\SoftDeletes;
-use Laravel\Scout\Searchable as ScoutSearchable;
+use Exception;
+use Illuminate\Support\Arr;
 use ScoutElastic\Builders\FilterBuilder;
 use ScoutElastic\Builders\SearchBuilder;
-use \Exception;
+use Laravel\Scout\Searchable as SourceSearchable;
 
 trait Searchable
 {
-    use ScoutSearchable {
-        ScoutSearchable::bootSearchable as bootScoutSearchable;
+    use SourceSearchable {
+        SourceSearchable::bootSearchable as sourceBootSearchable;
+        SourceSearchable::getScoutKeyName as sourceGetScoutKeyName;
     }
 
     /**
-     * @var Highlight|null
+     * The highligths.
+     *
+     * @var \ScoutElastic\Highlight|null
      */
     private $highlight = null;
 
     /**
+     * Defines if the model is searchable.
+     *
      * @var bool
      */
-    private static $isSearchableTraitBooted = false;
+    protected static $isSearchableTraitBooted = false;
 
+    /**
+     * Boot the trait.
+     *
+     * @return void
+     */
     public static function bootSearchable()
     {
-        if (self::$isSearchableTraitBooted) {
+        if (static::$isSearchableTraitBooted) {
             return;
         }
 
-        self::bootScoutSearchable();
+        self::sourceBootSearchable();
 
-        self::$isSearchableTraitBooted = true;
+        static::$isSearchableTraitBooted = true;
     }
 
     /**
-     * @return IndexConfigurator
-     * @throws Exception
+     * Get the index configurator.
+     *
+     * @return \ScoutElastic\IndexConfigurator
+     * @throws \Exception
      */
     public function getIndexConfigurator()
     {
@@ -59,20 +71,24 @@ trait Searchable
     }
 
     /**
+     * Get the mapping.
+     *
      * @return array
      */
     public function getMapping()
     {
         $mapping = $this->mapping ?? [];
 
-        if ($this->usesSoftDelete() && config('scout.soft_delete', false)) {
-            array_set($mapping, 'properties.__soft_deleted', ['type' => 'integer']);
+        if ($this::usesSoftDelete() && config('scout.soft_delete', false)) {
+            Arr::set($mapping, 'properties.__soft_deleted', ['type' => 'integer']);
         }
 
         return $mapping;
     }
 
     /**
+     * Get the search rules.
+     *
      * @return array
      */
     public function getSearchRules()
@@ -82,13 +98,15 @@ trait Searchable
     }
 
     /**
-     * @param $query
-     * @param null $callback
-     * @return FilterBuilder|SearchBuilder
+     * Execute the search.
+     *
+     * @param string $query
+     * @param callable|null $callback
+     * @return \ScoutElastic\Builders\FilterBuilder|\ScoutElastic\Builders\SearchBuilder
      */
     public static function search($query, $callback = null)
     {
-        $softDelete = config('scout.soft_delete', false);
+        $softDelete = static::usesSoftDelete() && config('scout.soft_delete', false);
 
         if ($query == '*') {
             return new FilterBuilder(new static, $callback, $softDelete);
@@ -98,6 +116,8 @@ trait Searchable
     }
 
     /**
+     * Execute a raw search.
+     *
      * @param array $query
      * @return array
      */
@@ -110,15 +130,10 @@ trait Searchable
     }
 
     /**
-     * @return bool
-     */
-    public function usesSoftDelete()
-    {
-        return in_array(SoftDeletes::class, class_uses_recursive($this));
-    }
-
-    /**
-     * @param Highlight $value
+     * Set the highlight attribute.
+     *
+     * @param \ScoutElastic\Highlight $value
+     * @return void
      */
     public function setHighlightAttribute(Highlight $value)
     {
@@ -126,10 +141,22 @@ trait Searchable
     }
 
     /**
-     * @return Highlight|null
+     * Get the highlight attribute.
+     *
+     * @return \ScoutElastic\Highlight|null
      */
     public function getHighlightAttribute()
     {
         return $this->highlight;
+    }
+
+    /**
+     * Get the key name used to index the model.
+     *
+     * @return mixed
+     */
+    public function getScoutKeyName()
+    {
+        return $this->getKeyName();
     }
 }

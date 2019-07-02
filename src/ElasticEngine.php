@@ -2,37 +2,47 @@
 
 namespace ScoutElastic;
 
-use Illuminate\Support\Facades\Artisan;
-use Laravel\Scout\Builder;
-use Laravel\Scout\Engines\Engine;
-use ScoutElastic\Builders\SearchBuilder;
-use ScoutElastic\Facades\ElasticClient;
-use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Database\Eloquent\Model;
-use ScoutElastic\Indexers\IndexerInterface;
-use ScoutElastic\Payloads\TypePayload;
 use stdClass;
+use Laravel\Scout\Builder;
+use Illuminate\Support\Arr;
+use Laravel\Scout\Engines\Engine;
+use ScoutElastic\Payloads\TypePayload;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Artisan;
+use ScoutElastic\Facades\ElasticClient;
+use ScoutElastic\Builders\SearchBuilder;
+use ScoutElastic\Indexers\IndexerInterface;
+use Illuminate\Database\Eloquent\Collection;
 
 class ElasticEngine extends Engine
 {
     /**
-     * @var IndexerInterface
+     * The indexer interface.
+     *
+     * @var \ScoutElastic\Indexers\IndexerInterface
      */
     protected $indexer;
 
     /**
+     * Should the mapping be updated.
+     *
      * @var bool
      */
     protected $updateMapping;
 
     /**
+     * The updated mappings.
+     *
      * @var array
      */
-    static protected $updatedMappings = [];
+    protected static $updatedMappings = [];
 
     /**
-     * @param IndexerInterface $indexer
-     * @param $updateMapping
+     * ElasticEngine constructor.
+     *
+     * @param \ScoutElastic\Indexers\IndexerInterface $indexer
+     * @param bool $updateMapping
+     * @return void
      */
     public function __construct(IndexerInterface $indexer, $updateMapping)
     {
@@ -42,7 +52,7 @@ class ElasticEngine extends Engine
     }
 
     /**
-     * @inheritdoc
+     * {@inheritdoc}
      */
     public function update($models)
     {
@@ -71,7 +81,7 @@ class ElasticEngine extends Engine
     }
 
     /**
-     * @inheritdoc
+     * {@inheritdoc}
      */
     public function delete($models)
     {
@@ -79,9 +89,11 @@ class ElasticEngine extends Engine
     }
 
     /**
-     * @param Builder $builder
+     * Build the payload collection.
+     *
+     * @param \Laravel\Scout\Builder $builder
      * @param array $options
-     * @return array
+     * @return \Illuminate\Support\Collection
      */
     public function buildSearchQueryPayloadCollection(Builder $builder, array $options = [])
     {
@@ -140,7 +152,7 @@ class ElasticEngine extends Engine
 
 
             foreach ($builder->wheres as $clause => $filters) {
-                $clauseKey = 'body.query.bool.filter.bool.' . $clause;
+                $clauseKey = 'body.query.bool.filter.bool.'.$clause;
 
                 $clauseValue = array_merge(
                     $payload->get($clauseKey, []),
@@ -155,9 +167,11 @@ class ElasticEngine extends Engine
     }
 
     /**
-     * @param Builder $builder
+     * Perform the search.
+     *
+     * @param \Laravel\Scout\Builder $builder
      * @param array $options
-     * @return array
+     * @return array|mixed
      */
     protected function performSearch(Builder $builder, array $options = [])
     {
@@ -188,7 +202,7 @@ class ElasticEngine extends Engine
     }
 
     /**
-     * @inheritdoc
+     * {@inheritdoc}
      */
     public function search(Builder $builder)
     {
@@ -196,7 +210,7 @@ class ElasticEngine extends Engine
     }
 
     /**
-     * @inheritdoc
+     * {@inheritdoc}
      */
     public function paginate(Builder $builder, $perPage, $page)
     {
@@ -208,29 +222,35 @@ class ElasticEngine extends Engine
     }
 
     /**
-     * @param Builder $builder
-     * @return array
+     * Explain the search.
+     *
+     * @param \Laravel\Scout\Builder $builder
+     * @return array|mixed
      */
     public function explain(Builder $builder)
     {
         return $this->performSearch($builder, [
-            'explain' => true
+            'explain' => true,
         ]);
     }
 
     /**
-     * @param Builder $builder
-     * @return array
+     * Profile the search.
+     *
+     * @param \Laravel\Scout\Builder $builder
+     * @return array|mixed
      */
     public function profile(Builder $builder)
     {
         return $this->performSearch($builder, [
-            'profile' => true
+            'profile' => true,
         ]);
     }
 
     /**
-     * @param Builder $builder
+     * Return the number of documents found.
+     *
+     * @param \Laravel\Scout\Builder $builder
      * @return int
      */
     public function count(Builder $builder)
@@ -253,9 +273,11 @@ class ElasticEngine extends Engine
     }
 
     /**
-     * @param Model $model
+     * Make a raw search.
+     *
+     * @param \Illuminate\Database\Eloquent\Model $model
      * @param array $query
-     * @return array
+     * @return mixed
      */
     public function searchRaw(Model $model, $query)
     {
@@ -267,7 +289,7 @@ class ElasticEngine extends Engine
     }
 
     /**
-     * @inheritdoc
+     * {@inheritdoc}
      */
     public function mapIds($results)
     {
@@ -275,32 +297,32 @@ class ElasticEngine extends Engine
     }
 
     /**
-     * @inheritdoc
+     * {@inheritdoc}
      */
-    public function map($results, $model)
+    public function map(Builder $builder, $results, $model)
     {
         if ($this->getTotalCount($results) == 0) {
             return Collection::make();
         }
 
-        $primaryKey = $model->getKeyName();
+        $scoutKeyName = $model->getScoutKeyName();
 
-        $columns = array_get($results, '_payload.body._source');
+        $columns = Arr::get($results, '_payload.body._source');
 
         if (is_null($columns)) {
             $columns = ['*'];
         } else {
-            $columns[] = $primaryKey;
+            $columns[] = $scoutKeyName;
         }
 
         $ids = $this->mapIds($results)->all();
 
-        $builder = $model->usesSoftDelete() ? $model->withTrashed() : $model->newQuery();
+        $query = $model::usesSoftDelete() ? $model->withTrashed() : $model->newQuery();
 
-        $models = $builder
-            ->whereIn($primaryKey, $ids)
+        $models = $query
+            ->whereIn($scoutKeyName, $ids)
             ->get($columns)
-            ->keyBy($primaryKey);
+            ->keyBy($scoutKeyName);
 
         return Collection::make($results['hits']['hits'])
             ->map(function ($hit) use ($models) {
@@ -321,10 +343,22 @@ class ElasticEngine extends Engine
     }
 
     /**
-     * @inheritdoc
+     * {@inheritdoc}
      */
     public function getTotalCount($results)
     {
-        return $results['hits']['total'];
+        return $results['hits']['total']['value'];
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function flush($model)
+    {
+        $query = $model::usesSoftDelete() ? $model->withTrashed() : $model->newQuery();
+
+        $query
+            ->orderBy($model->getScoutKeyName())
+            ->unsearchable();
     }
 }

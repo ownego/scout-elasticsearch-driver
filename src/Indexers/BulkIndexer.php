@@ -2,16 +2,16 @@
 
 namespace ScoutElastic\Indexers;
 
-use Illuminate\Database\Eloquent\Collection;
-use ScoutElastic\Facades\ElasticClient;
 use ScoutElastic\Migratable;
 use ScoutElastic\Payloads\RawPayload;
 use ScoutElastic\Payloads\TypePayload;
+use ScoutElastic\Facades\ElasticClient;
+use Illuminate\Database\Eloquent\Collection;
 
 class BulkIndexer implements IndexerInterface
 {
     /**
-     * @inheritdoc
+     * {@inheritdoc}
      */
     public function update(Collection $models)
     {
@@ -29,7 +29,7 @@ class BulkIndexer implements IndexerInterface
         }
 
         $models->each(function ($model) use ($bulkPayload) {
-            if ($model->usesSoftDelete() && config('scout.soft_delete', false)) {
+            if ($model::usesSoftDelete() && config('scout.soft_delete', false)) {
                 $model->pushSoftDeleteMetadata();
             }
 
@@ -43,7 +43,7 @@ class BulkIndexer implements IndexerInterface
             }
 
             $actionPayload = (new RawPayload())
-                ->set('index._id', $model->getKey());
+                ->set('index._id', $model->getScoutKey());
 
             $bulkPayload
                 ->add('body', $actionPayload->get())
@@ -54,7 +54,7 @@ class BulkIndexer implements IndexerInterface
     }
 
     /**
-     * @inheritdoc
+     * {@inheritdoc}
      */
     public function delete(Collection $models)
     {
@@ -64,10 +64,12 @@ class BulkIndexer implements IndexerInterface
 
         $models->each(function ($model) use ($bulkPayload) {
             $actionPayload = (new RawPayload())
-                ->set('delete._id', $model->getKey());
+                ->set('delete._id', $model->getScoutKey());
 
             $bulkPayload->add('body', $actionPayload->get());
         });
+
+        $bulkPayload->set('client.ignore', 404);
 
         ElasticClient::bulk($bulkPayload->get());
     }

@@ -1,7 +1,12 @@
 # Scout Elasticsearch Driver
 
+:exclamation: **If you are interested in being a collaborator, please fill in [this form](https://goo.gl/forms/hcB8LPQCyDpNRt9u2).** :exclamation:    
+
+---
+
 [![Packagist](https://img.shields.io/packagist/v/babenkoivan/scout-elasticsearch-driver.svg)](https://packagist.org/packages/babenkoivan/scout-elasticsearch-driver)
 [![Packagist](https://img.shields.io/packagist/dt/babenkoivan/scout-elasticsearch-driver.svg)](https://packagist.org/packages/babenkoivan/scout-elasticsearch-driver)
+[![Build Status](https://travis-ci.com/babenkoivan/scout-elasticsearch-driver.svg?branch=master)](https://travis-ci.com/babenkoivan/scout-elasticsearch-driver)
 [![Gitter](https://img.shields.io/gitter/room/nwjs/nw.js.svg)](https://gitter.im/scout-elasticsearch-driver/Lobby)
 [![Donate](https://img.shields.io/badge/donate-PayPal-blue.svg)](https://www.paypal.me/ivanbabenko)
 
@@ -43,9 +48,9 @@ Check out its [features](#features)!
 
 The package has been tested in the following configuration: 
 
-* PHP version &gt;= 7.1.3
-* Laravel Framework version &gt;= 5.6
-* Elasticsearch version &gt;= 6
+* PHP version &gt;=7.1.3, &lt;=7.3
+* Laravel Framework version 5.8
+* Elasticsearch version &gt;=7
 
 ## Installation
 
@@ -129,7 +134,7 @@ More about index settings you can find in the [index management section](https:/
 To create an index just run the artisan command:
  
 ```
-php artisan elastic:create-index App\\MyIndexConfigurator
+php artisan elastic:create-index "App\MyIndexConfigurator"
 ```
 
 Note, that every searchable model requires its own index configurator.
@@ -166,11 +171,12 @@ class MyModel extends Model
         //
     ];
 
-    // Here you can specify a mapping for a model fields.
+    // Here you can specify a mapping for model fields
     protected $mapping = [
         'properties' => [
-            'text' => [
+            'title' => [
                 'type' => 'text',
+                // Also you can configure multi-fields, more details you can find here https://www.elastic.co/guide/en/elasticsearch/reference/current/multi-fields.html
                 'fields' => [
                     'raw' => [
                         'type' => 'keyword',
@@ -194,7 +200,7 @@ We'll take a closer look at it in [the search rules section](#search-rules).
 After setting up a mapping in your model you can update an Elasticsearch type mapping:
 
 ```
-php artisan elastic:update-mapping App\\MyModel
+php artisan elastic:update-mapping "App\MyModel"
 ```
 
 ## Usage
@@ -439,7 +445,7 @@ whereRegexp($field, $value, $flags = 'ALL') | whereRegexp('name.raw', 'A.+') | F
 whereGeoDistance($field, $value, $distance) | whereGeoDistance('location', [-70, 40], '1000m') | Filters records according to given point and distance from it. [Here](https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-geo-distance-query.html) you can find more about syntax.
 whereGeoBoundingBox($field, array $value) | whereGeoBoundingBox('location', ['top_left' =>  [-74.1, 40.73], 'bottom_right' => [-71.12, 40.01]]) | Filters records within given boundings. [Here](https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-geo-bounding-box-query.html) you can find more about syntax.
 whereGeoPolygon($field, array $points) | whereGeoPolygon('location', [[-70, 40],[-80, 30],[-90, 20]]) | Filters records within given polygon. [Here](https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-geo-polygon-query.html) you can find more about syntax.
-whereGeoShape($field, array $shape) | whereGeoShape('shape', ['type' => 'circle', 'radius' => '1km', 'coordinates' => [4, 52]]) | Filters records within given shape. [Here](https://www.elastic.co/guide/en/elasticsearch/guide/current/querying-geo-shapes.html) you can find more about syntax.
+whereGeoShape($field, array $shape, $relation = 'INTERSECTS') | whereGeoShape('shape', ['type' => 'circle', 'radius' => '1km', 'coordinates' => [4, 52]], 'WITHIN') | Filters records within given shape. [Here](https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-geo-shape-query.html) you can find more about syntax.
 
 In most cases it's better to use raw fields to filter records, i.e. not analyzed fields.
 
@@ -455,13 +461,13 @@ Before you run the command, make sure that your index configurator uses the `Sco
 If it's not, add the trait and run the artisan `elastic:update-index` command using your index configurator class name as an argument:
 
 ```
-php artisan elastic:update-index App\\MyIndexConfigurator
+php artisan elastic:update-index "App\MyIndexConfigurator"
 ```
 
 When you are ready, make changes in the model mapping and run the `elastic:migrate` command using the model class as the first argument and desired index name as the second argument:
 
 ```
-php artisan elastic:migrate App\\MyModel my_index_v2
+php artisan elastic:migrate "App\MyModel" my_index_v2
 ``` 
 
 Note, that if you need just to add new fields in your mapping, use the `elastic:update-mapping` command.

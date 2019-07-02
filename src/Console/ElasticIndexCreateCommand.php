@@ -2,33 +2,37 @@
 
 namespace ScoutElastic\Console;
 
-use Illuminate\Console\Command;
-use ScoutElastic\Console\Features\RequiresIndexConfiguratorArgument;
-use ScoutElastic\Facades\ElasticClient;
 use ScoutElastic\Migratable;
+use Illuminate\Console\Command;
+use ScoutElastic\Facades\ElasticClient;
 use ScoutElastic\Payloads\IndexPayload;
+use ScoutElastic\Console\Features\RequiresIndexConfiguratorArgument;
 
 class ElasticIndexCreateCommand extends Command
 {
     use RequiresIndexConfiguratorArgument;
 
     /**
-     * @var string
+     * {@inheritdoc}
      */
     protected $name = 'elastic:create-index';
 
     /**
-     * @var string
+     * {@inheritdoc}
      */
     protected $description = 'Create an Elasticsearch index';
 
+    /**
+     * Create an index.
+     *
+     * @return void
+     */
     protected function createIndex()
     {
         $configurator = $this->getIndexConfigurator();
 
         $payload = (new IndexPayload($configurator))
             ->setIfNotEmpty('body.settings', $configurator->getSettings())
-            ->setIfNotEmpty('body.mappings._default_', $configurator->getDefaultMapping())
             ->get();
 
         ElasticClient::indices()
@@ -40,6 +44,11 @@ class ElasticIndexCreateCommand extends Command
         ));
     }
 
+    /**
+     * Create an write alias.
+     *
+     * @return void
+     */
     protected function createWriteAlias()
     {
         $configurator = $this->getIndexConfigurator();
@@ -62,6 +71,11 @@ class ElasticIndexCreateCommand extends Command
         ));
     }
 
+    /**
+     * Handle the command.
+     *
+     * @return void
+     */
     public function handle()
     {
         $this->createIndex();

@@ -3,14 +3,13 @@
 namespace ScoutElastic\Console;
 
 use Exception;
-use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Artisan;
-use ScoutElastic\Console\Features\RequiresModelArgument;
-use ScoutElastic\Facades\ElasticClient;
 use ScoutElastic\Migratable;
-use ScoutElastic\Payloads\IndexPayload;
+use Illuminate\Console\Command;
 use ScoutElastic\Payloads\RawPayload;
+use ScoutElastic\Facades\ElasticClient;
+use ScoutElastic\Payloads\IndexPayload;
 use Symfony\Component\Console\Input\InputArgument;
+use ScoutElastic\Console\Features\RequiresModelArgument;
 
 class ElasticMigrateCommand extends Command
 {
@@ -19,16 +18,18 @@ class ElasticMigrateCommand extends Command
     }
 
     /**
-     * @var string
+     * {@inheritdoc}
      */
     protected $name = 'elastic:migrate';
 
     /**
-     * @var string
+     * {@inheritdoc}
      */
     protected $description = 'Migrate model to another index';
 
     /**
+     * Get the command arguments.
+     *
      * @return array
      */
     protected function getArguments()
@@ -41,6 +42,8 @@ class ElasticMigrateCommand extends Command
     }
 
     /**
+     * Checks if the target index exists.
+     *
      * @return bool
      */
     protected function isTargetIndexExists()
@@ -55,6 +58,11 @@ class ElasticMigrateCommand extends Command
             ->exists($payload);
     }
 
+    /**
+     * Create a target index.
+     *
+     * @return void
+     */
     protected function createTargetIndex()
     {
         $targetIndex = $this->argument('target-index');
@@ -65,7 +73,6 @@ class ElasticMigrateCommand extends Command
         $payload = (new RawPayload())
             ->set('index', $targetIndex)
             ->setIfNotEmpty('body.settings', $sourceIndexConfigurator->getSettings())
-            ->setIfNotEmpty('body.mappings._default_', $sourceIndexConfigurator->getDefaultMapping())
             ->get();
 
         ElasticClient::indices()
@@ -77,6 +84,12 @@ class ElasticMigrateCommand extends Command
         ));
     }
 
+    /**
+     * Update the target index.
+     *
+     * @throws \Exception
+     * @return void
+     */
     protected function updateTargetIndex()
     {
         $targetIndex = $this->argument('target-index');
@@ -102,16 +115,6 @@ class ElasticMigrateCommand extends Command
                 $indices->putSettings($targetIndexSettingsPayload);
             }
 
-            if ($defaultMapping = $sourceIndexConfigurator->getDefaultMapping()) {
-                $targetIndexMappingPayload = (new RawPayload())
-                    ->set('index', $targetIndex)
-                    ->set('type', '_default_')
-                    ->set('body._default_', $defaultMapping)
-                    ->get();
-
-                $indices->putMapping($targetIndexMappingPayload);
-            }
-
             $indices->open($targetIndexPayload);
         } catch (Exception $exception) {
             $indices->open($targetIndexPayload);
@@ -125,6 +128,11 @@ class ElasticMigrateCommand extends Command
         ));
     }
 
+    /**
+     * Update the target index mapping.
+     *
+     * @return void
+     */
     protected function updateTargetIndexMapping()
     {
         $sourceModel = $this->getModel();
@@ -150,6 +158,7 @@ class ElasticMigrateCommand extends Command
         $payload = (new RawPayload())
             ->set('index', $targetIndex)
             ->set('type', $targetType)
+            ->set('include_type_name', 'true')
             ->set('body.' . $targetType, $mapping)
             ->get();
 
@@ -163,6 +172,8 @@ class ElasticMigrateCommand extends Command
     }
 
     /**
+     * Check if an alias exists.
+     *
      * @param string $name
      * @return bool
      */
@@ -177,7 +188,9 @@ class ElasticMigrateCommand extends Command
     }
 
     /**
-     * @param $name
+     * Get an alias.
+     *
+     * @param string $name
      * @return array
      */
     protected function getAlias($name)
@@ -191,7 +204,10 @@ class ElasticMigrateCommand extends Command
     }
 
     /**
+     * Delete an alias.
+     *
      * @param string $name
+     * @return void
      */
     protected function deleteAlias($name)
     {
@@ -219,7 +235,10 @@ class ElasticMigrateCommand extends Command
     }
 
     /**
+     * Create an alias for the target index.
+     *
      * @param string $name
+     * @return void
      */
     protected function createAliasForTargetIndex($name)
     {
@@ -244,6 +263,11 @@ class ElasticMigrateCommand extends Command
         ));
     }
 
+    /**
+     * Import the documents to the target index.
+     *
+     * @return void
+     */
     protected function importDocumentsToTargetIndex()
     {
         $sourceModel = $this->getModel();
@@ -254,6 +278,11 @@ class ElasticMigrateCommand extends Command
         );
     }
 
+    /**
+     * Delete the source index.
+     *
+     * @return void
+     */
     protected function deleteSourceIndex()
     {
         $sourceIndexConfigurator = $this
@@ -290,6 +319,11 @@ class ElasticMigrateCommand extends Command
         }
     }
 
+    /**
+     * Handle the command.
+     *
+     * @return void
+     */
     public function handle()
     {
         $sourceModel = $this->getModel();
